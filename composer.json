@@ -1,0 +1,32 @@
+{
+    "name": "dvaknheo/workermanhttpd",
+    "description": "workerman http server andplugin for duckphp",
+    "type": "library",
+    "keywords": [
+        "duckphp",
+        "workerman",
+		"php httpserver"
+    ],
+    "homepage": "https://www.github.com/dvaknheo/workermanhttpd",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "davknheo",
+            "email": "85811616@qq.com"
+        }
+    ],
+	"autoload": {
+        "psr-4": {
+            "WorkermanHttpd\\": "src"
+        }
+    },
+    "require": {
+        "php": ">=7.2.0",
+        "workerman/workerman": "^4.0.4"
+	},
+    "require-dev": {
+        "dvaknheo/libcoverage": ">=1.0.5",
+        "dvaknheo/duckphp": ">=1.2.10",
+        "phpunit/php-code-coverage": "8.0.2"
+    }
+}
