@@ -20,16 +20,17 @@ class HttpServerForDuckPhp extends  HttpServer
         $workermann_options=[
             'listen' => $listen,
             'path' => App::G()->options['path'],
-            'onRun'=>[static::class,'OnServerRequest'],
+            'http_handler'=>[static::class,'OnServerRequest'],
         ];
         
         WorkermanHttpd::G()->init($workermann_options);
+        
+        App::G()->options['skip_404_handler'] = true;
+        App::SetExceptionHandle(WorkermanHttpd404Exception::class,function(){});
+        App::system_wrapper_replace(WorkermanServer::system_wrapper_get_providers());  //  替换系统函数
         App::G()->replaceDefaultRunHandler(null); // 后续版本改为在系统里 replace
-        //App::system_wrapper_replace(WorkermanServer::system_wrapper_get_providers());  //  替换系统函数
+        
         ///////////
-        //App::G()->options['skip_404_handler'] = true;
-        //App::SetExceptionHandle(WorkermanHttpd404Exception::class,function(){});
-        ///////
         return $ret;
     }
     public function run()
@@ -43,6 +44,7 @@ class HttpServerForDuckPhp extends  HttpServer
     }
     public function _OnServerRequest()
     {
+        //还看看有什么额外操作
         return App::G()->run();
     }
 }

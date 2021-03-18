@@ -11,6 +11,9 @@ class WorkermanHttpdTest extends \PHPUnit\Framework\TestCase
     {
         LibCoverage::Begin(WorkermanHttpd::class);
         
+        // 我们要弄个背景执行，并设置 pid 文件，然后关闭 pid 文件。
+        //WorkermanHttpd::RunQuickly($options);
+
         /* //
         WorkermanHttpd::G()->__construct();
         WorkermanHttpd::G()->RunQuickly($options);

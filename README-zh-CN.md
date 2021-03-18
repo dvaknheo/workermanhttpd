@@ -49,7 +49,7 @@ $options=[
 WorkermanHttpd::RunQuickly($options);
 ```
 
-浏览器打开 http://127.0.0.1:9528/
+浏览器打开 http://127.0.0.1:8080/
 这个例子展现了 $_SERVER 里有的东西
 
 ### 选项

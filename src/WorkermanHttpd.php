@@ -19,8 +19,7 @@ class WorkermanHttpd
     protected static $_instances = [];
     ///////////////////
     public $options = [
-        'listen'               => 'http://0.0.0.0:8787',
-        'transport'            => 'tcp',
+        'listen'               => 'http://127.0.0.1:8787',
         'context'              => [],
         'name'                 => 'WorkermanHttpd',
         'user'                 => '',
@@ -30,18 +29,34 @@ class WorkermanHttpd
         'process'              => [],
         'autoload_files'       => [],
         'bootstrap'            => [],
+        
         //////////
         'count'                => -1,
         'pid_file'             => '???',
         'stdout_file'          => '???',
         /////
         'path'                 => '???',
+        'command'              => '',
         /////////////
     ];
     
     public function __construct()
     {
-        $this->options['pid_file'] =  'runtime/webman.pid';
+/*
+$available_commands = array(
+    'start',
+    'stop',
+    'restart',
+    'reload',
+    'status',
+    'connections',
+);
+$available_mode = array(
+    '-d',
+    '-g'
+);
+*/
+        $this->options['pid_file'] =  'runtime/webman.log';
         $this->options['stdout_file'] =  'runtime/logs/stdout.log';
     }
     public static function RunQuickly($options)
@@ -63,6 +78,22 @@ class WorkermanHttpd
         TcpConnection::$defaultMaxPackageSize = $this->options['max_package_size'];
         Worker::$onMasterReload               = [static::class,'ReloadOpCache'];
         return $this;
+    }
+    protected function getComponenetPathByKey($path_key): string
+    {
+        if (DIRECTORY_SEPARATOR === '/') {
+            if (substr($this->options[$path_key], 0, 1) === '/') {
+                return rtrim($this->options[$path_key], '/').'/';
+            } else {
+                return $this->options['path'].rtrim($this->options[$path_key], '/').'/';
+            }
+        } else { // @codeCoverageIgnoreStart
+            if (substr($this->options[$path_key], 1, 1) === ':') {
+                return rtrim($this->options[$path_key], '\\').'\\';
+            } else {
+                return $this->options['path'].rtrim($this->options[$path_key], '\\').'\\';
+            } // @codeCoverageIgnoreEnd
+        }
     }
     /**
      * @return int
@@ -96,9 +127,20 @@ class WorkermanHttpd
     ////////////////////////////////////////////
     public function run()
     {
+        //global $argv;
+        //$argv[1] ='start';
+        
         $config = $this->options;
         $worker = new Worker($config['listen'], $config['context']);
-        $this->bind_property($worker,$config,false);
+        
+        $property_map = [
+            'name',
+            'user',
+            'group',
+            'reusePort',
+        ];
+        $this->bind_property($worker,$config,$property_map);
+        //$worker->$property = $config[$property];
         $worker->onWorkerStart = [static::class, 'onWorkerStart'];
         Worker::runAll();
         return true;
@@ -136,7 +178,7 @@ class WorkermanHttpd
         Request::G($request)->run();
         Response::G(new Response())->run();
         $this->doSuperGlobal($request);
-        $data = $this->onRequest();
+        list($flag, $data) = $this->onRequest();
         Response::G()->withBody($data);
         
         $keep_alive =  $request->header('connection');
@@ -153,25 +195,18 @@ class WorkermanHttpd
     protected function onRequest()
     {
         \ob_start();
+        $flag = false;
         try {
-            $callback = $this->options['onRun'];
+            $callback = $this->options['http_handler'];
             $flag = $callback();  // 这里要保存是否 404
         } catch (\Exception $e) {
             echo $e;  // 这里应该让其他地方处理
         }
-        return \ob_get_clean();
+        return [$flag, \ob_get_clean()];
     }
     ////////////////////////////////////
-    protected function bind_property($worker,$config)
+    protected function bind_property($worker,$config,$property_map)
     {
-        $property_map = [
-            'name',
-            'count',
-            'user',
-            'group',
-            'reusePort',
-            'transport',
-        ];
         foreach ($property_map as $property) {
             if (isset($config[$property])) {
                 $worker->$property = $config[$property];
@@ -294,7 +329,7 @@ trait WorkermanHttpd_SystemWrapper
     ////[[[[
     public function _session_start(array $options = [])
     {
-        // 这里应该
+        // 这里要额外处理。
         Request::G()->session_id();
     }
     public function _session_id($session_id = null)
