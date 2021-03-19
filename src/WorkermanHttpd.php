@@ -19,45 +19,38 @@ class WorkermanHttpd
     protected static $_instances = [];
     ///////////////////
     public $options = [
-        'listen'               => 'http://127.0.0.1:8787',
-        'context'              => [],
-        'name'                 => 'WorkermanHttpd',
-        'user'                 => '',
-        'group'                => '',
-        'max_request'          => 1000000,
-        'max_package_size'     => 10*1024*1024,
-        'process'              => [],
-        'autoload_files'       => [],
-        'bootstrap'            => [],
+        'host'  =>'127.0.0.1',
+        'port'  =>'8787',
+        
+        'worker_name'                 => 'WorkermanHttpd',
+        'worker_count'                => -1,
+        'worker_properties'    => [],
         
         //////////
-        'count'                => -1,
-        'pid_file'             => '???',
-        'stdout_file'          => '???',
-        /////
-        'path'                 => '???',
-        'command'              => '',
-        /////////////
+        //'pid_file'             => '???',
+        //'stdout_file'          => '???',
+        'path'                 => '',
+        'request_class'        => '',
+        'command'              => 'start',
+        'background'           => false,
+        'gracefull'           => false,
+        
+        
+        'http_handler' => null,
+        'http_handler_basepath' => '',
+        'http_handler_root' => null,
+        'http_handler_file' => null,
+        'http_exception_handler' => null,
+        'http_404_handler' => null,
+        
+        'with_http_handler_root' => false,
+        'with_http_handler_file' => false,
     ];
+    protected $worker;
     
     public function __construct()
     {
-/*
-$available_commands = array(
-    'start',
-    'stop',
-    'restart',
-    'reload',
-    'status',
-    'connections',
-);
-$available_mode = array(
-    '-d',
-    '-g'
-);
-*/
-        $this->options['pid_file'] =  'runtime/webman.log';
-        $this->options['stdout_file'] =  'runtime/logs/stdout.log';
+        //
     }
     public static function RunQuickly($options)
     {
@@ -65,18 +58,29 @@ $available_mode = array(
     }
     public function init(array $options, object $context = null)
     {
-        $this->options['path'] =__DIR__;
-        $this->options = array_replace_recursive($this->options, $options);
+        $this->options['path'] =__DIR__;  // 这行有问题
         
-        $this->options['count'] = $this->options['count'] >=0 ? $this->options['count'] : $this->cpu_count() * 2;
-
+        $this->options = array_replace_recursive($this->options, $options);
+        //////////////////////
+        $this->options['worker_count'] = $this->options['worker_count'] >=0 ? $this->options['worker_count'] : $this->cpu_count() * 2;
+        //TODO 采用默认配置
         $this->options['pid_file'] = $this->options['path'] . '/runtime/webman.pid';
         $this->options['stdout_file'] = $this->options['path']  . '/runtime/logs/stdout.log';
         
-        Worker::$pidFile                      = $this->options['pid_file'];
-        Worker::$stdoutFile                   = $this->options['stdout_file'];
-        TcpConnection::$defaultMaxPackageSize = $this->options['max_package_size'];
-        Worker::$onMasterReload               = [static::class,'ReloadOpCache'];
+        ///////////////
+        
+        TcpConnection::$defaultMaxPackageSize = 10*1024*1024;
+        //TcpConnection::$defaultMaxPackageSize = $this->options['max_request'];
+        
+        //Worker::$pidFile                      = $this->options['pid_file'];
+        //Worker::$stdoutFile                   = $this->options['stdout_file'];
+        
+        Worker::$onMasterReload               = [static::class,'OnMasterReload'];
+        Worker::$daemonize     = $this->options['background'];
+        
+        $this->worker = $this->initWorker();
+        // 这里以后或许改成 MyWorker::G();
+        
         return $this;
     }
     protected function getComponenetPathByKey($path_key): string
@@ -95,6 +99,19 @@ $available_mode = array(
             } // @codeCoverageIgnoreEnd
         }
     }
+    protected function initWorker()
+    {
+        $listen = 'http://'.$this->options['host'].':'.$this->options['port'];
+        $worker = new Worker($listen);
+        $worker->name =  $this->options['worker_name'];
+        $worker->count = $this->options['worker_count'];
+        foreach($this->options['worker_properties'] as $k => $v) {
+            if (isset($v)) {
+                $worker->$k = $v;
+            }
+        }
+        return $worker;
+    }
     /**
      * @return int
      */
@@ -107,13 +124,42 @@ $available_mode = array(
         $count = (int)$count > 0 ? (int)$count : 4;
         return $count;
     }
-    ////////////
-    public function ReloadOpCache()
+    public function run()
     {
-        return static::G()->_ReloadOpCache();
+/*
+$available_commands = array(
+    'start',
+    'stop',
+    'restart',
+    'reload',
+    'status',
+    'connections',
+);
+$available_mode = array(
+    '-d',
+    '-g' gracefull
+);
+*/
+        global $argv;
+        $_SERVER['init_argv'] = $argv;
+        $argv=[];
+        $argv[0] = $_SERVER['init_argv'][0];
+        $argv[] = $this->options['command'];
+        if($this->options['gracefull']){ 
+            $argv[] = '-g';
+        }
+        
+        $this->worker->onWorkerStart = [static::class, 'OnWorkerStart'];
+        Worker::runAll();
+        return true;
     }
-    public function _ReloadOpCache()
+    public function OnMasterReload()
     {
+        return static::G()->OnMasterReload();
+    }
+    public function _OnMasterReload()
+    {
+        //reload opcache
         if (function_exists('opcache_get_status')) {
             if ($status = opcache_get_status()) {
                 if (isset($status['scripts']) && $scripts = $status['scripts']) {
@@ -124,35 +170,13 @@ $available_mode = array(
             }
         }
     }
-    ////////////////////////////////////////////
-    public function run()
+    public static function OnWorkerStart($worker)
     {
-        //global $argv;
-        //$argv[1] ='start';
-        
-        $config = $this->options;
-        $worker = new Worker($config['listen'], $config['context']);
-        
-        $property_map = [
-            'name',
-            'user',
-            'group',
-            'reusePort',
-        ];
-        $this->bind_property($worker,$config,$property_map);
-        //$worker->$property = $config[$property];
-        $worker->onWorkerStart = [static::class, 'onWorkerStart'];
-        Worker::runAll();
-        return true;
+        return static::G()->_OnWorkerStart($worker);
     }
-    
-    public static function onWorkerStart($worker)
+    public function _OnWorkerStart($worker)
     {
-        return static::G()->_onWorkerStart($worker);
-    }
-    public function _onWorkerStart($worker)
-    {
-        Http::requestClass(Request::class); // 这里要做成可配置的。
+        Http::requestClass($this->options['request_class'] ? : Request::class);
         
         set_error_handler(function ($level, $message, $file = '', $line = 0, $context = []) {
             if (error_reporting() & $level) {
@@ -166,7 +190,6 @@ $available_mode = array(
             }
         }, time());
         $worker->onMessage = [static::class,'OnMessage'];
-        
     }
     public static function OnMessage($connection, $request)
     {
@@ -181,40 +204,29 @@ $available_mode = array(
         list($flag, $data) = $this->onRequest();
         Response::G()->withBody($data);
         
+        ////
         $keep_alive =  $request->header('connection');
         if (($keep_alive === null && $request->protocolVersion() === '1.1')
             || $keep_alive === 'keep-alive' || $keep_alive === 'Keep-Alive'
         ) {
             $connection->send(Response::G());
-            Response::G(new Response()); // free 掉
+            Response::G(new Response()); // free 掉  这里有问题？
             return;
         }
         $connection->close($response);
-        Response::G(new Response()); // free 掉
+        Response::G(new Response()); // free 掉 这里有问题？
     }
     protected function onRequest()
     {
         \ob_start();
         $flag = false;
         try {
-            $callback = $this->options['http_handler'];
-            $flag = $callback();  // 这里要保存是否 404
+            $flag = ($this->options['http_handler'])(); 
         } catch (\Exception $e) {
-            echo $e;  // 这里应该让其他地方处理
+            echo $e;  // 这里要用上 set_exception_handler;
         }
         return [$flag, \ob_get_clean()];
     }
-    ////////////////////////////////////
-    protected function bind_property($worker,$config,$property_map)
-    {
-        foreach ($property_map as $property) {
-            if (isset($config[$property])) {
-                $worker->$property = $config[$property];
-            }
-        }
-    }
-    /////////////////////////////////
-    
     public static function Request()
     {
         return Request::G();
@@ -223,28 +235,31 @@ $available_mode = array(
     {
         return Response::G();
     }
-    ////
-    public function doSuperGlobal($request)
+    public static function Worker()
     {
-        //$request = 
-        //$_ENV,
+        return $this->worker;
+    }
+    ////
+    protected function doSuperGlobal($request)
+    {
         $_GET = $request->get();
         $_POST = $request->post();
         $_REQUET = array_merge($_POST,$_GET);
         $_COOKIE = $request->cookie();
         
         $_SERVER = [];
+        $_SERVER['cli_script_filename'] = $_SERVER['SCRIPT_FILENAME'] ?? '';
+
         $_SERVER['REQUEST_URI']=$request->uri();
         $_SERVER['REQUEST_METHOD']= $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-        $_SERVER['PATH_INFO']=\parse_url($request->uri(), PHP_URL_PATH);
-        $_SERVER['DOCUMENT_ROOT']='';
-        $_SERVER['SCRIPT_FILENAME']='';
+        $_SERVER['PATH_INFO'] = \parse_url($request->uri(), PHP_URL_PATH);
+        $_SERVER['DOCUMENT_ROOT'] = '';
+        $_SERVER['SCRIPT_FILENAME'] = '';
         
-        //session 的处理？
-        //$_SESSION;
+
         //////
-        /*
+        //*
         if (isset($this->_SERVER['argv'])) {
             $this->_SERVER['cli_argv'] = $this->_SERVER['argv'];
             unset($this->_SERVER['argv']);
@@ -254,13 +269,15 @@ $available_mode = array(
             unset($this->_SERVER['argc']);
         }
         
-        //$headers = $this->header();
+        $headers = $request->header();
         foreach ($headers as $k => $v) {
             $k = 'HTTP_'.str_replace('-', '_', strtoupper($k));
             $_SERVER[$k] = $v;
         }
-        $this->_SERVER['cli_script_filename'] = $this->_SERVER['SCRIPT_FILENAME'] ?? '';
         //*/
+        
+                //session 的处理？
+        //$_SESSION;
     }
 }
 

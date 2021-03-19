@@ -1,25 +1,16 @@
-# WorkerManHttpd
+# WorkermanHttpd
 
-** 准备用来做 WorkerMan 的封装**
-## WorkerManHttpd 是什么
+## 一、WorkerManHttpd 是什么
 
-WorkerManHttpd 致力于 WorkerMan 代码和 fpm 平台 代码几乎不用修改就可以双平台运行。
-是对 workderman 类的一个包裹。
+WorkermanHttpd 致力于 Workerman 代码和 fpm 平台 代码几乎不用修改就可以双平台运行。
+是对 Workerman 类的一个包裹。
 
-
-
-理论上应该是是高性能的
-
-## 特色
+理论上应该是是高性能的。
 
 直接用 echo 输出。直接用超全局变量 $\_GET,$\_POST 等
 
-最方便旧代码迁移。
 
-
-只需要系统函数的封装 WorkerManHttpd ::header(),WorkerManHttpd ::setcookie() 等。
-
-尤其是 WorkerManHttpd ::session_start()
+只有少量系统函数改为 WorkermanHttpd 封装: WorkermanHttpd ::header(),WorkermanHttpd ::setcookie() WorkermanHttpd ::session_start()
 
 
 ## 基本应用
@@ -53,3 +44,73 @@ WorkermanHttpd::RunQuickly($options);
 这个例子展现了 $_SERVER 里有的东西
 
 ### 选项
+
+## 类解读
+
+除了主类和 SingletonExTrait   其他都是无管理啊的
+
+### ExitException
+
+中断的异常类。一般不直接用，你需要 `WorkermanHttpd::Exit()`;
+
+### HttpServerForDuckPhp
+
+封装了 `DuckPhp\Http\Server` 的类 用于 DuckPhp 系统
+
+### Request
+
+可变单例请求类， 扩充自 `Workerman\Protocols\Http\Request` 使用 `SingletonExTrait`
+
+### Response
+
+可变单例请求类， 扩充自 `Workerman\Protocols\Http\Response` 使用 `SingletonExTrait`
+
+### SingletonExTrait
+
+可变单例类。 
+
+### WorkermanHttpd
+
+主类。主要调用这个。 使用 `SingletonExTrait`
+
+#### 选项
+
+包含 Workerman 的所有设置，
+
+独特选项
+
+
+
+        'path'                 => '???',
+        'command'              => '',
+        'request_class'        => '',
+        'http_handler'
+#### 静态方法:系统方法的替代
+
+这些方法有
+
+- header
+- setcookie
+- exit
+- session_start
+- session_id
+- session_destroy
+- session_set_save_handler
+
+比如原先代码里有 `exit()`; 要修改成 `WorkermanHttpd::exit()`; 调用参数都一样
+具体可以调用 `WorkermanHttpd::system_wrapper_get_providers()`显示了这些列表
+#### 静态方法：子对象
+WorkermanHttpd::Request()
+    获得当前 Request 对象。
+Response
+    获得当前 Response 对象。
+OnWorkerStart($worker)
+    内部使用
+OnMessage($connection, $request)
+    内部使用
+
+#### 动态方法
+
+init()
+
+run()
