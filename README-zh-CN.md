@@ -139,3 +139,6 @@ OnMessage($connection, $request)
 init()
 
 run()
+## 备忘
+
+php duckphp.php  run --override-class=WorkermanHttpd/HttpServerForDuckphp --command start
