@@ -284,7 +284,7 @@ $available_mode = array(
 
 trait WorkermanHttpd_SystemWrapper
 {
-    public function system_wrapper_get_providers()
+    public static function system_wrapper_get_providers()
     {
         $ret = [
             'header'=>[static::class, 'header'],
