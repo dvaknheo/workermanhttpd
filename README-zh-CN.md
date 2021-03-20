@@ -5,12 +5,18 @@
 WorkermanHttpd 致力于 Workerman 代码和 fpm 平台 代码几乎不用修改就可以双平台运行。
 是对 Workerman 类的一个包裹。
 
-理论上应该是是高性能的。
-
 直接用 echo 输出。直接用超全局变量 $\_GET,$\_POST 等
 
 
-只有少量系统函数改为 WorkermanHttpd 封装: WorkermanHttpd ::header(),WorkermanHttpd ::setcookie() WorkermanHttpd ::session_start()
+只有少量系统函数改为 WorkermanHttpd 封装:
+
+- header
+- setcookie
+- exit
+- session_start
+- session_id
+- session_destroy
+- session_set_save_handler
 
 
 ## 基本应用
@@ -79,12 +85,31 @@ WorkermanHttpd::RunQuickly($options);
 
 独特选项
 
+    'host'  =>'127.0.0.1',          //绑定IP
+    'port'  =>'8787',               //绑定端口
 
+    'worker_name'            => 'WorkermanHttpd',       //标题
+    'worker_count'           => -1,                 //CPU
+    'worker_properties'      => [],                 //worker属性
 
-        'path'                 => '???',
-        'command'              => '',
-        'request_class'        => '',
-        'http_handler'
+    //////////
+    //'pid_file'             => '???',
+    //'stdout_file'          => '???',  
+    'request_class'          => '',       //默认的请求类，一般不动。
+    'command'                => 'start',  //对应命令
+    'background'             => false,    //后台模式
+    'gracefull'              => false,    //优雅模式
+
+    'http_handler' => null,             //执行的 http_handler
+    'http_handler_basepath' => '',      //暂未使用
+    'http_handler_root' => null,        //暂未使用
+    'http_handler_file' => null,        //暂未使用
+    'http_exception_handler' => null,   //暂未使用
+    'http_404_handler' => null,         //暂未使用
+
+    'with_http_handler_root' => false,  //暂未使用
+    'with_http_handler_file' => false,  //暂未使用
+
 #### 静态方法:系统方法的替代
 
 这些方法有

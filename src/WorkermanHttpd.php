@@ -1,14 +1,13 @@
 <?php declare(strict_types=1);
 /**
- * DuckPhp
+ * WorkermanHttpd
  * From this time, you never be alone~
  */
-
 namespace WorkermanHttpd;
 
-use Workerman\Worker;
-use Workerman\Protocols\Http;
 use Workerman\Connection\TcpConnection;
+use Workerman\Protocols\Http;
+use Workerman\Worker;
 
 ///////////////////////////////
 
@@ -19,21 +18,21 @@ class WorkermanHttpd
     protected static $_instances = [];
     ///////////////////
     public $options = [
-        'host'  =>'127.0.0.1',
-        'port'  =>'8787',
+        'host' => '127.0.0.1',
+        'port' => '8787',
         
-        'worker_name'                 => 'WorkermanHttpd',
-        'worker_count'                => -1,
-        'worker_properties'    => [],
+        'worker_name' => 'WorkermanHttpd',
+        'worker_count' => -1,
+        'worker_properties' => [],
         
         //////////
         //'pid_file'             => '???',
         //'stdout_file'          => '???',
-        'path'                 => '',
-        'request_class'        => '',
-        'command'              => 'start',
-        'background'           => false,
-        'gracefull'           => false,
+        'path' => '',
+        'request_class' => '',
+        'command' => 'start',
+        'background' => false,
+        'gracefull' => false,
         
         
         'http_handler' => null,
@@ -58,25 +57,24 @@ class WorkermanHttpd
     }
     public function init(array $options, object $context = null)
     {
-        $this->options['path'] =__DIR__;  // 这行有问题
+        $this->options['path'] = __DIR__;  // 这行有问题
         
         $this->options = array_replace_recursive($this->options, $options);
         //////////////////////
-        $this->options['worker_count'] = $this->options['worker_count'] >=0 ? $this->options['worker_count'] : $this->cpu_count() * 2;
+        $this->options['worker_count'] = $this->options['worker_count'] >= 0 ? $this->options['worker_count'] : $this->cpu_count() * 2;
         //TODO 采用默认配置
-        $this->options['pid_file'] = $this->options['path'] . '/runtime/webman.pid';
-        $this->options['stdout_file'] = $this->options['path']  . '/runtime/logs/stdout.log';
+        //$this->options['pid_file'] = $this->options['path'] . '/runtime/webman.pid';
+        //$this->options['stdout_file'] = $this->options['path']  . '/runtime/logs/stdout.log';
         
         ///////////////
         
-        TcpConnection::$defaultMaxPackageSize = 10*1024*1024;
+        TcpConnection::$defaultMaxPackageSize = 10 * 1024 * 1024;
         //TcpConnection::$defaultMaxPackageSize = $this->options['max_request'];
-        
         //Worker::$pidFile                      = $this->options['pid_file'];
         //Worker::$stdoutFile                   = $this->options['stdout_file'];
         
-        Worker::$onMasterReload               = [static::class,'OnMasterReload'];
-        Worker::$daemonize     = $this->options['background'];
+        Worker::$onMasterReload = [static::class,'OnMasterReload'];
+        Worker::$daemonize = $this->options['background'];
         
         $this->worker = $this->initWorker();
         // 这里以后或许改成 MyWorker::G();
@@ -103,9 +101,9 @@ class WorkermanHttpd
     {
         $listen = 'http://'.$this->options['host'].':'.$this->options['port'];
         $worker = new Worker($listen);
-        $worker->name =  $this->options['worker_name'];
+        $worker->name = $this->options['worker_name'];
         $worker->count = $this->options['worker_count'];
-        foreach($this->options['worker_properties'] as $k => $v) {
+        foreach ($this->options['worker_properties'] as $k => $v) {
             if (isset($v)) {
                 $worker->$k = $v;
             }
@@ -115,7 +113,8 @@ class WorkermanHttpd
     /**
      * @return int
      */
-    protected function cpu_count() {
+    protected function cpu_count()
+    {
         if (strtolower(PHP_OS) === 'darwin') {
             $count = shell_exec('sysctl -n machdep.cpu.core_count');
         } else {
@@ -126,26 +125,26 @@ class WorkermanHttpd
     }
     public function run()
     {
-/*
-$available_commands = array(
-    'start',
-    'stop',
-    'restart',
-    'reload',
-    'status',
-    'connections',
-);
-$available_mode = array(
-    '-d',
-    '-g' gracefull
-);
-*/
+        /*
+        $available_commands = array(
+            'start',
+            'stop',
+            'restart',
+            'reload',
+            'status',
+            'connections',
+        );
+        $available_mode = array(
+            '-d',
+            '-g' gracefull
+        );
+        */
         global $argv;
         $_SERVER['init_argv'] = $argv;
-        $argv=[];
+        $argv = [];
         $argv[0] = $_SERVER['init_argv'][0];
         $argv[] = $this->options['command'];
-        if($this->options['gracefull']){ 
+        if ($this->options['gracefull']) {
             $argv[] = '-g';
         }
         
@@ -184,6 +183,7 @@ $available_mode = array(
             }
         });
         register_shutdown_function(function ($start_time) {
+            $this->endSession();
             if (time() - $start_time <= 1) {
                 echo "\nWait to gracefull end \n";
                 sleep(1);
@@ -205,25 +205,32 @@ $available_mode = array(
         Response::G()->withBody($data);
         
         ////
-        $keep_alive =  $request->header('connection');
+        $keep_alive = $request->header('connection');
         if (($keep_alive === null && $request->protocolVersion() === '1.1')
             || $keep_alive === 'keep-alive' || $keep_alive === 'Keep-Alive'
         ) {
             $connection->send(Response::G());
-            Response::G(new Response()); // free 掉  这里有问题？
+            Request::G(new \stdClass()); //free reference.
+            Response::G(new \stdClass()); //free reference.
             return;
         }
         $connection->close($response);
-        Response::G(new Response()); // free 掉 这里有问题？
+        Request::G(new \stdClass()); //free reference.
+        Response::G(new \stdClass()); //free reference.
     }
     protected function onRequest()
     {
         \ob_start();
         $flag = false;
         try {
-            $flag = ($this->options['http_handler'])(); 
-        } catch (\Exception $e) {
-            echo $e;  // 这里要用上 set_exception_handler;
+            $flag = ($this->options['http_handler'])();
+        } catch (\Exception $ex) {
+            if ($this->options['http_exception_handler']) {
+                ($this->options['http_exception_handler'])($ex);
+            } else {
+                static::header('', true, 500);
+                echo $ex;
+            }
         }
         return [$flag, \ob_get_clean()];
     }
@@ -244,30 +251,21 @@ $available_mode = array(
     {
         $_GET = $request->get();
         $_POST = $request->post();
-        $_REQUET = array_merge($_POST,$_GET);
+        $_REQUET = array_merge($_POST, $_GET);
         $_COOKIE = $request->cookie();
         
-        $_SERVER = [];
-        $_SERVER['cli_script_filename'] = $_SERVER['SCRIPT_FILENAME'] ?? '';
+        $OLD_SERVER = $_SERVER ;
+        //$_SERVER = [];
+        $_SERVER['cli_script_filename'] = $OLD_SERVER['SCRIPT_FILENAME'] ?? '';
+        $_SERVER['argv'] = $OLD_SERVER['init_argv'] ?? '';
+        //$_SERVER['argv'] = $OLD_SERVER['init_argv'] ?? '';
 
-        $_SERVER['REQUEST_URI']=$request->uri();
-        $_SERVER['REQUEST_METHOD']= $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        $_SERVER['REQUEST_URI'] = $request->uri();
+        $_SERVER['REQUEST_METHOD'] = $OLD_SERVER['REQUEST_METHOD'] ?? 'GET';
 
         $_SERVER['PATH_INFO'] = \parse_url($request->uri(), PHP_URL_PATH);
         $_SERVER['DOCUMENT_ROOT'] = '';
         $_SERVER['SCRIPT_FILENAME'] = '';
-        
-
-        //////
-        //*
-        if (isset($this->_SERVER['argv'])) {
-            $this->_SERVER['cli_argv'] = $this->_SERVER['argv'];
-            unset($this->_SERVER['argv']);
-        }
-        if (isset($this->_SERVER['argc'])) {
-            $this->_SERVER['cli_argc'] = $this->_SERVER['argc'];
-            unset($this->_SERVER['argc']);
-        }
         
         $headers = $request->header();
         foreach ($headers as $k => $v) {
@@ -275,9 +273,6 @@ $available_mode = array(
             $_SERVER[$k] = $v;
         }
         //*/
-        
-                //session 的处理？
-        //$_SESSION;
     }
 }
 
@@ -287,13 +282,13 @@ trait WorkermanHttpd_SystemWrapper
     public static function system_wrapper_get_providers()
     {
         $ret = [
-            'header'=>[static::class, 'header'],
-            'setcookie'=>[static::class, 'setcookie'],
-            'exit'=>[static::class, 'exit'],
-            'session_start'=>[static::class, 'session_start'],
-            'session_id'=>[static::class, 'session_id'],
-            'session_destroy'=>[static::class, 'session_destroy'],
-            'session_set_save_handler'=>[static::class, 'session_set_save_handler'],
+            'header' => [static::class, 'header'],
+            'setcookie' => [static::class, 'setcookie'],
+            'exit' => [static::class, 'exit'],
+            'session_start' => [static::class, 'session_start'],
+            'session_id' => [static::class, 'session_id'],
+            'session_destroy' => [static::class, 'session_destroy'],
+            'session_set_save_handler' => [static::class, 'session_set_save_handler'],
         ];
         return $ret;
     }
@@ -328,10 +323,11 @@ trait WorkermanHttpd_SystemWrapper
     ////////////////////////////////////////
     public function _header($output, bool $replace = true, int $http_response_code = 0)
     {
-        list($key, $value) = explode(':', $output);
-        if($http_response_code){
+        if ($http_response_code) {
             Response::G()->withStatus($http_response_code);
+            return;
         }
+        list($key, $value) = explode(':', $output);
         return Response::G()->header($key, $value);
     }
     public function _setcookie(string $key, string $value = '', int $expire = 0, string $path = '/', string $domain = '', bool $secure = false, bool $httponly = false)
@@ -341,25 +337,37 @@ trait WorkermanHttpd_SystemWrapper
 
     public function _exit($code = 0)
     {
-        throw new ExitException($code, $code); // 这里要有一个规范的 Exception.
+        throw new ExitException(''.$code, $code);
     }
-    ////[[[[
     public function _session_start(array $options = [])
     {
-        // 这里要额外处理。
-        Request::G()->session_id();
+        Request::G()->session();
+        $_SESSION = Request::G()->session()->all();
     }
     public function _session_id($session_id = null)
     {
-        return Request::G()->session_id();
+        return Request::G()->session()->getId();
     }
     public function _session_destroy()
     {
+        Request::G()->session()->flush();
         Request::G()->session()->save();
+        $_SESSION = null;
     }
     public function _session_set_save_handler(\SessionHandlerInterface $handler)
     {
         Request::G()->session()::handlerClass(get_class($handler));
     }
-    ////]]]]
+    public function endSession()
+    {
+        if (empty($_SESSION)) {
+            return;
+        }
+        $t = $_SESSION;
+        Request::G()->session()->flush();
+        foreach ($t as $k => $v) {
+            Request::G()->session()->set($k, $v);
+        }
+        Request::G()->session()->save();
+    }
 }

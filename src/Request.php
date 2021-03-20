@@ -1,13 +1,12 @@
 <?php declare(strict_types=1);
 /**
- * DuckPhp
+ * WorkermanHttpd
  * From this time, you never be alone~
  */
-
 namespace WorkermanHttpd;
-use WorkermanHttpd\SingletonExTrait;
 
 use Workerman\Protocols\Http\Request as BaseRequest;
+use WorkermanHttpd\SingletonExTrait;
 
 class Request extends BaseRequest
 {

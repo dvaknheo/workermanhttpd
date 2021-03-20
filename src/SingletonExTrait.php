@@ -1,9 +1,8 @@
 <?php declare(strict_types=1);
 /**
- * DuckPhp
+ * WorkermanHttpd
  * From this time, you never be alone~
  */
-
 namespace WorkermanHttpd;
 
 trait SingletonExTrait
@@ -26,4 +25,5 @@ trait SingletonExTrait
         }
         
         return $me;
-    }}
+    }
+}
