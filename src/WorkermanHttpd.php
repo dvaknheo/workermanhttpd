@@ -183,7 +183,6 @@ class WorkermanHttpd
             }
         });
         register_shutdown_function(function ($start_time) {
-            $this->endSession();
             if (time() - $start_time <= 1) {
                 echo "\nWait to gracefull end \n";
                 sleep(1);
@@ -210,13 +209,15 @@ class WorkermanHttpd
             || $keep_alive === 'keep-alive' || $keep_alive === 'Keep-Alive'
         ) {
             $connection->send(Response::G());
-            Request::G(new \stdClass()); //free reference.
+            $this->endSession();
             Response::G(new \stdClass()); //free reference.
+            Request::G(new \stdClass()); //free reference.
             return;
         }
         $connection->close($response);
-        Request::G(new \stdClass()); //free reference.
+        $this->endSession();
         Response::G(new \stdClass()); //free reference.
+        Request::G(new \stdClass()); //free reference.
     }
     protected function onRequest()
     {

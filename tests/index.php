@@ -2,7 +2,7 @@
 WorkermanHttpd\WorkermanHttpd::session_start();
 var_dump($_SESSION);
 echo "!";
-WorkermanHttpd\WorkermanHttpd::exit(111);
+//WorkermanHttpd\WorkermanHttpd::exit(111);
 $_SESSION[DATE(DATE_ATOM)]=DATE(DATE_ATOM);
 var_dump($_SESSION);
 
