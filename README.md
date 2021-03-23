@@ -3,7 +3,7 @@
 
 [English](README.md) | [中文](README-zh-CN.md)
 
-*** v1.0.1 ***
+*** v1.0.2 ***
 
 ## what is WorkerManHttpd
 
@@ -36,12 +36,12 @@ composer require dvaknheo/workermanhttpd
 
 ```php
 <?php
-use WorkermanHttpd\WorkermanHttpd;
-require(__DIR__.'/../autoload.php');
+require(__DIR__.'/vendor/autoload.php');
 function hello()
 {
+    \WorkermanHttpd\WorkermanHttpd::header('test: '.DATE(DATE_ATOM));
     echo "<h1> hello ,have a good start.</h1><pre>\n";
-    var_export($_GET,$_POST,$_SERVER);
+    var_dump($_GET,$_POST,$_SERVER);
     echo "</pre>";
     return true; //  正常true , 404 false;
 }
@@ -74,7 +74,7 @@ $options=[
     'with_http_handler_file' => false,  //for next version
 //*/
 ];
-WorkermanHttpd::RunQuickly($options);
+\WorkermanHttpd\WorkermanHttpd::RunQuickly($options);
 ```
 
 browse http://127.0.0.1:8080/
