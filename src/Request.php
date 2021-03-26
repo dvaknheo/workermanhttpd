@@ -11,8 +11,4 @@ use WorkermanHttpd\SingletonExTrait;
 class Request extends BaseRequest
 {
     use SingletonExTrait;
-    public function run()
-    {
-        //
-    }
 }

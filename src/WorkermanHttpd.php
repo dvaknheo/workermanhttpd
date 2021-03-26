@@ -7,7 +7,8 @@ namespace WorkermanHttpd;
 
 use Workerman\Connection\TcpConnection;
 use Workerman\Protocols\Http;
-use Workerman\Worker;
+use Workerman\Worker as BaseWorker;
+use WorkermanHttpd\Worker;
 
 ///////////////////////////////
 
@@ -19,7 +20,7 @@ class WorkermanHttpd
     ///////////////////
     public $options = [
         'host' => '127.0.0.1',
-        'port' => '8787',
+        'port' => '8080',
         
         'worker_name' => 'WorkermanHttpd',
         'worker_count' => -1,
@@ -33,7 +34,6 @@ class WorkermanHttpd
         'command' => 'start',
         'background' => false,
         'gracefull' => false,
-        
         
         'http_handler' => null,
         'http_handler_basepath' => '',
@@ -76,8 +76,16 @@ class WorkermanHttpd
         Worker::$onMasterReload = [static::class,'OnMasterReload'];
         Worker::$daemonize = $this->options['background'];
         
-        $this->worker = $this->initWorker();
-        // 这里以后或许改成 MyWorker::G();
+        $worker = $this->initWorker();
+        Worker::G($worker);
+        
+        $app = $this->options['http_app_class'];
+        if($app){
+            $app::G()->options['skip_404_handler'] = true;
+            $app::assignExceptionHandler(ExitException::class, function () {
+            });
+            $app::system_wrapper_replace(static::system_wrapper_get_providers());
+        }
         
         return $this;
     }
@@ -100,7 +108,7 @@ class WorkermanHttpd
     protected function initWorker()
     {
         $listen = 'http://'.$this->options['host'].':'.$this->options['port'];
-        $worker = new Worker($listen);
+        $worker = new BaseWorker($listen);
         $worker->name = $this->options['worker_name'];
         $worker->count = $this->options['worker_count'];
         foreach ($this->options['worker_properties'] as $k => $v) {
@@ -148,7 +156,7 @@ class WorkermanHttpd
             $argv[] = '-g';
         }
         
-        $this->worker->onWorkerStart = [static::class, 'OnWorkerStart'];
+        Worker::G()->onWorkerStart = [static::class, 'OnWorkerStart'];
         Worker::runAll();
         return true;
     }
@@ -197,8 +205,8 @@ class WorkermanHttpd
 
     public function _OnMessage($connection, $request)
     {
-        Request::G($request)->run();
-        Response::G(new Response())->run();
+        Request::G($request);
+        Response::G(new Response());
         $this->doSuperGlobal($request);
         list($flag, $data) = $this->onRequest();
         Response::G()->withBody($data);
@@ -224,7 +232,11 @@ class WorkermanHttpd
         \ob_start();
         $flag = false;
         try {
-            $flag = ($this->options['http_handler'])();
+            if($this->options['http_app_class']){
+                $flag = $this->runHttpAppClass();
+            } else if($this->options['http_handler']) {
+                $flag = ($this->options['http_handler'])();
+            }
         } catch (\Exception $ex) {
             if ($this->options['http_exception_handler']) {
                 ($this->options['http_exception_handler'])($ex);
@@ -234,6 +246,15 @@ class WorkermanHttpd
             }
         }
         return [$flag, \ob_get_clean()];
+    }
+    protected function runHttpAppClass()
+    {
+        $app = $this->options['http_app_class'];
+        $flag = $app::G()->run();
+        if (!$flag) {
+            $app::On404();
+        }
+        return true;
     }
     public static function Request()
     {
@@ -245,7 +266,7 @@ class WorkermanHttpd
     }
     public static function Worker()
     {
-        return $this->worker;
+        return Worker::G();
     }
     ////
     protected function doSuperGlobal($request)

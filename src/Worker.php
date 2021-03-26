@@ -5,10 +5,10 @@
  */
 namespace WorkermanHttpd;
 
-use Workerman\Protocols\Http\Response as BaseResponse;
+use Workerman\Worker as BaseWorker;
 use WorkermanHttpd\SingletonExTrait;
 
-class Response extends BaseResponse
+class Worker extends BaseWorker
 {
     use SingletonExTrait;
 }
