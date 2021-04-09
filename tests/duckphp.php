@@ -5,8 +5,17 @@
  */
 require __DIR__.'/../vendor/autoload.php';
 require __DIR__.'/../../DNMVCS/autoload.php';
+chdir(realpath(__DIR__.'/../../DNMVCS/template/'));
+//var_dump(realpath(__DIR__.'/../../DNMVCS/template/'));
+require 'duckphp-project';
 
-class Main
+//php duckphp.php run --override-class=WorkermanHttpd/WorkermanHttpd
+
+return;
+require __DIR__.'/../../DNMVCS/template/.php';
+
+return;
+class Mainx
 {
     public function index()
     {
@@ -16,7 +25,6 @@ class Main
 $options = [
     'namespace_controller' => "\\",   // 本例特殊，设置控制器的命名空间为根，而不是默认的 Controller
     // 还有百来个选项以上可用，详细请查看参考文档
-    //HttpServerForDuckPhp::
     'is_debug'=>true,
 ];
 \DuckPhp\DuckPhp::RunQuickly($options);
