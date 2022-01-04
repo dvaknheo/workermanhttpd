@@ -133,4 +133,4 @@ G($object = null)
 
 ## 备忘
 
-php duckphp.php  run --override-class=WorkermanHttpd/HttpServerForDuckphp --command start
+php duckphp-project run --http-server=WorkermanHttpd/WorkermanHttpd  # --command start

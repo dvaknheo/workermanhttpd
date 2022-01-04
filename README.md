@@ -132,4 +132,4 @@ G($object = null)
 
 ## note
 
-php duckphp.php  run --override-class=WorkermanHttpd/HttpServerForDuckphp --command start
+php duckphp-project run --http-server=WorkermanHttpd/WorkermanHttpd  # --command start
