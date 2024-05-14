@@ -51,6 +51,10 @@ class WorkermanHttpd
     {
         //
     }
+    public static function _($object = null)
+    {
+        return static::G($object);
+    }
     public static function RunQuickly($options)
     {
         return static::G()->init($options)->run();
@@ -218,13 +222,13 @@ class WorkermanHttpd
         ) {
             $connection->send(Response::G());
             $this->endSession();
-            Response::G(new \stdClass()); //free reference.
+            Response::G(new Response()); //free reference.
             Request::G(new \stdClass()); //free reference.
             return;
         }
-        $connection->close($response);
+        $connection->close(Response::G());  //  ---- THIS CODE IS OVERRIDE  TO FIX THIS
         $this->endSession();
-        Response::G(new \stdClass()); //free reference.
+        Response::G(new Response()); //free reference.
         Request::G(new \stdClass()); //free reference.
     }
     protected function onRequest()
@@ -250,10 +254,7 @@ class WorkermanHttpd
     protected function runHttpAppClass()
     {
         $app = $this->options['http_app_class'];
-        $flag = $app::G()->run();
-        if (!$flag) {
-            $app::On404();
-        }
+        $flag = $app::_()->run();
         return true;
     }
     public static function Request()
@@ -345,12 +346,22 @@ trait WorkermanHttpd_SystemWrapper
     ////////////////////////////////////////
     public function _header($output, bool $replace = true, int $http_response_code = 0)
     {
+        $http_response_code = $http_response_code ? $http_response_code: 200;
         if ($http_response_code) {
             Response::G()->withStatus($http_response_code);
-            return;
+            // return; //  ---- THIS CODE IS OVERRIDE  TO FIX THIS
         }
-        list($key, $value) = explode(':', $output);
-        return Response::G()->header($key, $value);
+        if(strpos($output, ':') !== false){
+            @list($key, $value) = explode(':', $output);
+            
+            if(strtoupper($key) === 'CONTENT-TYPE'){
+                $key = "Content-Type";
+            }
+            return Response::G()->header($key, $value)->withStatus($http_response_code);
+        } else {
+            return Response::G()->withStatus($http_response_code);
+        }
+        return Response::G()->header($key, $value)->withStatus($http_response_code);
     }
     public function _setcookie(string $key, string $value = '', int $expire = 0, string $path = '/', string $domain = '', bool $secure = false, bool $httponly = false)
     {
@@ -363,8 +374,10 @@ trait WorkermanHttpd_SystemWrapper
     }
     public function _session_start(array $options = [])
     {
-        Request::G()->session();
-        $_SESSION = Request::G()->session()->all();
+        //var_dump(\WorkermanHttpd\Request::G());
+        $flag = \WorkermanHttpd\Request::G()->session();
+        if(!$flag){return;}
+        $_SESSION = \WorkermanHttpd\Request::G()->session()->all();
     }
     public function _session_id($session_id = null)
     {
