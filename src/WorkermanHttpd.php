@@ -83,14 +83,10 @@ class WorkermanHttpd
         $worker = $this->initWorker();
         Worker::G($worker);
         
-        $app = $this->options['http_app_class'];
-        if($app){
-            $app::G()->options['skip_404_handler'] = true;
-            $app::assignExceptionHandler(ExitException::class, function () {
-            });
-            $app::system_wrapper_replace(static::system_wrapper_get_providers());
+        // SystemWrapper
+        if(!defined('__SYSTEM_WRAPPER_REPLACER')){
+            define('__SYSTEM_WRAPPER_REPLACER',static::class);
         }
-        
         return $this;
     }
     protected function getComponenetPathByKey($path_key): string
@@ -370,6 +366,9 @@ trait WorkermanHttpd_SystemWrapper
 
     public function _exit($code = 0)
     {
+        if (!defined('__EXIT_EXCEPTION')) {
+            define('__EXIT_EXCEPTION', ExitException::class);
+        }
         throw new ExitException(''.$code, $code);
     }
     public function _session_start(array $options = [])
